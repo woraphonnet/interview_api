@@ -1,0 +1,114 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UsersRole {
+  admin
+  hr
+  candidate
+}
+
+enum InterviewsStatus {
+  to_do
+  in_progress
+  done
+}
+
+enum InterviewHistoriesChangeType {
+  create
+  edit
+  done
+  delete
+  archive
+}
+
+// Models
+model User {
+  id                 String             @id @default(uuid())
+  email              String             @unique @db.VarChar(255)
+  password_hash      String
+  full_name          String             @db.VarChar(255)
+  role               UsersRole
+  created_at         DateTime           @default(now()) @db.Timestamptz()
+  updated_at         DateTime           @updatedAt @db.Timestamptz()
+  deleted_at         DateTime?          @db.Timestamptz()
+  interview          Interview[]
+  interview_comment  InterviewComment[]
+  password_reset_otp PasswordResetOtp[]
+
+  @@map("users")
+}
+
+model Interview {
+  id            String           @id @default(uuid())
+  title         String           @db.VarChar(255)
+  description   String
+  status        InterviewsStatus @default(to_do)
+  schedule_date DateTime         @db.Timestamptz()
+  created_by    String
+  is_archived   Boolean          @default(false)
+  created_at    DateTime         @default(now()) @db.Timestamptz()
+  updated_at    DateTime         @updatedAt @db.Timestamptz()
+  deleted_at    DateTime?        @db.Timestamptz()
+
+  creator   User               @relation(fields: [created_by], references: [id])
+  comments  InterviewComment[]
+  histories InterviewHistory[]
+
+  @@map("interviews")
+}
+
+model InterviewComment {
+  id           String     @id @default(uuid())
+  interview_id String
+  commenter_id String
+  comment      String
+  created_at   DateTime   @default(now()) @db.Timestamptz()
+  updated_at   DateTime   @updatedAt @db.Timestamptz()
+  deleted_at   DateTime?  @db.Timestamptz()
+  interview    Interview? @relation(fields: [interview_id], references: [id])
+  commenter    User?      @relation(fields: [commenter_id], references: [id])
+
+  @@map("interview_comments")
+}
+
+model InterviewHistory {
+  id           String                       @id @default(uuid())
+  interview_id String
+  changed_by   String
+  change_type  InterviewHistoriesChangeType
+  detail       String?
+  created_at   DateTime                     @default(now()) @db.Timestamptz()
+  interview    Interview?                   @relation(fields: [interview_id], references: [id])
+
+  @@map("interview_histories")
+}
+
+// AUTH Feature 
+model PasswordResetOtp {
+  id         String    @id @default(uuid())
+  user       User      @relation(fields: [user_id], references: [id])
+  user_id    String
+  otp        String
+  sent_to    String
+  is_used    Boolean   @default(false)
+  expires_at DateTime  @db.Timestamptz()
+  created_at DateTime  @default(now()) @db.Timestamptz()
+  used_at    DateTime?
+  deleted_at DateTime? @db.Timestamptz()
+
+  @@index([user_id])
+  @@index([otp])
+  @@map("password_reset_otp")
+}
